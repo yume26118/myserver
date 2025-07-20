@@ -4,7 +4,7 @@ DOCKER_IMAGE := $(APP_NAME)
 DOCKER_TAG := latest
 PORT := 8080
 GITHUB_REGISTRY := ghcr.io
-GITHUB_USER := your-username
+GITHUB_USER := $(shell git config user.name)
 GITHUB_IMAGE := $(GITHUB_REGISTRY)/$(GITHUB_USER)/$(APP_NAME)
 
 # 默认目标
@@ -12,15 +12,20 @@ GITHUB_IMAGE := $(GITHUB_REGISTRY)/$(GITHUB_USER)/$(APP_NAME)
 help:
 	@echo "可用的命令:"
 	@echo "  build        - 构建Docker镜像"
+	@echo "  build-china  - 使用国内镜像源构建Docker镜像"
+	@echo "  build-local  - 本地构建（不使用Docker）"
 	@echo "  run          - 运行Docker容器"
+	@echo "  run-local    - 本地运行（不使用Docker）"
 	@echo "  stop         - 停止Docker容器"
 	@echo "  clean        - 清理Docker镜像和容器"
 	@echo "  test         - 测试应用"
 	@echo "  dev          - 本地开发模式运行"
 	@echo "  deps         - 安装Go依赖"
+	@echo "  login        - 登录GitHub Container Registry"
 	@echo "  push         - 推送镜像到GitHub Registry"
 	@echo "  pull         - 从GitHub Registry拉取镜像"
 	@echo "  deploy       - 部署GitHub Registry镜像"
+	@echo "  publish      - 完整发布流程(构建+推送)"
 
 # 安装Go依赖
 .PHONY: deps
@@ -44,6 +49,27 @@ build:
 	@echo "构建Docker镜像: $(DOCKER_IMAGE):$(DOCKER_TAG)"
 	docker build -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
 	@echo "镜像构建完成!"
+
+# 使用国内镜像源构建Docker镜像
+.PHONY: build-china
+build-china:
+	@echo "使用国内镜像源构建Docker镜像: $(DOCKER_IMAGE):$(DOCKER_TAG)"
+	docker build -f Dockerfile.china -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	@echo "镜像构建完成!"
+
+# 本地构建（不使用Docker）
+.PHONY: build-local
+build-local: deps
+	@echo "本地构建应用..."
+	@echo "设置Go代理为国内源..."
+	set GOPROXY=https://goproxy.cn,direct && set GOSUMDB=sum.golang.google.cn && go build -o $(APP_NAME).exe .
+	@echo "本地构建完成: $(APP_NAME).exe"
+
+# 本地运行（不使用Docker）
+.PHONY: run-local
+run-local: build-local
+	@echo "本地运行应用..."
+	./$(APP_NAME).exe
 
 # 运行Docker容器
 .PHONY: run
@@ -74,12 +100,27 @@ tag:
 	@echo "标记镜像用于GitHub Registry..."
 	docker tag $(DOCKER_IMAGE):$(DOCKER_TAG) $(GITHUB_IMAGE):$(DOCKER_TAG)
 
+# 登录GitHub Container Registry
+.PHONY: login
+login:
+	@echo "登录GitHub Container Registry..."
+	@echo "请确保你已经创建了GitHub Personal Access Token (PAT)"
+	@echo "Token需要包含 write:packages 权限"
+	@echo "请输入你的GitHub Personal Access Token:"
+	@read -s token; echo $$token | docker login $(GITHUB_REGISTRY) -u $(GITHUB_USER) --password-stdin
+
 # 推送镜像到GitHub Registry
 .PHONY: push
 push: build tag
 	@echo "推送镜像到GitHub Registry..."
 	docker push $(GITHUB_IMAGE):$(DOCKER_TAG)
 	@echo "镜像推送完成!"
+
+# 完整发布流程
+.PHONY: publish
+publish: login build tag push
+	@echo "完整发布流程完成!"
+	@echo "镜像地址: $(GITHUB_IMAGE):$(DOCKER_TAG)"
 
 # 从GitHub Registry拉取镜像
 .PHONY: pull

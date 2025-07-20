@@ -1,14 +1,11 @@
-# 使用阿里云镜像源的官方Go镜像作为构建环境
-FROM registry.cn-hangzhou.aliyuncs.com/library/golang:1.21-alpine AS builder
+# 使用网易云镜像源的官方Go镜像作为构建环境
+FROM hub-mirror.c.163.com/library/golang:1.21-alpine AS builder
 
 # 设置工作目录
 WORKDIR /app
 
-# 设置Alpine镜像源为清华大学镜像源
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
-
 # 设置Go代理为国内源
-ENV GOPROXY=https://goproxy.cn,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,direct
+ENV GOPROXY=https://goproxy.cn,direct
 ENV GOSUMDB=sum.golang.google.cn
 
 # 复制go mod文件
@@ -23,11 +20,11 @@ COPY . .
 # 构建应用
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 
-# 使用阿里云镜像源的轻量级镜像运行应用
-FROM registry.cn-hangzhou.aliyuncs.com/library/alpine:latest
+# 使用网易云镜像源的轻量级镜像运行应用
+FROM hub-mirror.c.163.com/library/alpine:latest
 
-# 设置Alpine镜像源为清华大学镜像源
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
+# 设置中科大Alpine镜像源
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 
 # 安装ca-certificates用于HTTPS请求
 RUN apk --no-cache add ca-certificates tzdata
